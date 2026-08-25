@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'subscriptions.txt'      # 修改订阅文件时触发
+      - 'subscriptions.txt'
       - '.github/workflows/**'
   schedule:
-    - cron: '0 2 * * *'          # 每天 UTC 时间凌晨 2 点定时触发拉取更新
-  workflow_dispatch:             # 支持手动触发
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -36,13 +36,11 @@ jobs:
           wget -qO sing-box.tar.gz $LATEST_URL
           tar -xzf sing-box.tar.gz
           sudo mv sing-box-*/sing-box /usr/local/bin/
-          sing-box version
 
       - name: Process URLs and Convert to JSON
         run: |
           mkdir -p srs_output
           
-          # 创建内联 Python 智能解析脚本
           cat << 'EOF' > convert.py
           import os, json, yaml, requests
 
@@ -58,18 +56,15 @@ jobs:
                   
               out_json_path = f"srs_output/{name}.json"
               
-              # 1. 检测是否原生支持 Sing-box JSON
               try:
                   data = json.loads(content)
                   if "rules" in data:
-                      print(f"-> [{name}] is valid Sing-box JSON.")
                       with open(out_json_path, "w", encoding="utf-8") as f:
                           json.dump(data, f, indent=2, ensure_ascii=False)
                       return
               except json.JSONDecodeError:
                   pass
                   
-              # 2. 按照 Mihomo(Clash) YAML 或纯文本解析
               try:
                   data = yaml.safe_load(content)
                   if isinstance(data, dict) and "payload" in data:
@@ -79,7 +74,6 @@ jobs:
               except yaml.YAMLError:
                   payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
-              # 3. 映射规则字段
               sb_rules = {}
               mapping = {
                   "DOMAIN-SUFFIX": "domain_suffix",
@@ -100,7 +94,6 @@ jobs:
                   parts = [p.strip() for p in line.split(',', 1)]
                   if len(parts) >= 2:
                       r_type, r_val = parts[0].upper(), parts[1]
-                      # 剥离 Clash 特有的环境标签 (如 no-resolve) 确保 JSON 纯净
                       r_val = r_val.split(',')[0].strip() 
                       
                       if r_type in mapping:
@@ -111,7 +104,6 @@ jobs:
                   print(f"-> [{name}] No valid rules extracted.")
                   return
 
-              # 4. 构建标准 Sing-box rule-set 模板
               final_json = {
                   "version": 2,
                   "rules": [sb_rules]
@@ -119,7 +111,7 @@ jobs:
               
               with open(out_json_path, "w", encoding="utf-8") as f:
                   json.dump(final_json, f, indent=2, ensure_ascii=False)
-              print(f"-> [{name}] Successfully converted to Sing-box JSON.")
+              print(f"-> [{name}] Success.")
 
           if os.path.exists("subscriptions.txt"):
               with open("subscriptions.txt", "r", encoding="utf-8") as f:
@@ -138,20 +130,29 @@ jobs:
           for file in srs_output/*.json; do
             if [ -f "$file" ]; then
               name=$(basename "$file" .json)
-              echo "Compiling $name.json to $name.srs"
               sing-box rule-set compile "$file" -o "srs_output/${name}.srs"
             fi
           done
 
-      - name: Generate Release Tag
-        id: tag
-        run: echo "release_tag=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+      # === 新增：清理旧的 latest 标签与 Release ===
+      - name: Remove Old Release and Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删除远端 Release 和 Tag (|| true 确保首次运行或找不到标签时不会导致报错中断)
+          gh release delete latest --cleanup-tag -y || true
+          git push origin :refs/tags/latest || true
 
+      - name: Get Current Time
+        run: echo "UPDATE_TIME=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+
+      # === 修改：固定发版到 latest ===
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.release_tag }}
-          name: "Auto Update ${{ steps.tag.outputs.release_tag }}"
+          tag_name: latest
+          name: "Latest Rules"
+          body: "自动更新时间: ${{ env.UPDATE_TIME }}"
           files: |
             srs_output/*.srs
             srs_output/*.json
