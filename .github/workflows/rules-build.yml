@@ -1,0 +1,161 @@
+name: Fetch, Convert and Release SRS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'subscriptions.txt'      # 修改订阅文件时触发
+      - '.github/workflows/**'
+  schedule:
+    - cron: '0 2 * * *'          # 每天 UTC 时间凌晨 2 点定时触发拉取更新
+  workflow_dispatch:             # 支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: pip install pyyaml requests
+
+      - name: Install Latest sing-box
+        run: |
+          LATEST_URL=$(curl -sL https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep "browser_download_url" | grep "linux-amd64.tar.gz" | cut -d '"' -f 4)
+          wget -qO sing-box.tar.gz $LATEST_URL
+          tar -xzf sing-box.tar.gz
+          sudo mv sing-box-*/sing-box /usr/local/bin/
+          sing-box version
+
+      - name: Process URLs and Convert to JSON
+        run: |
+          mkdir -p srs_output
+          
+          # 创建内联 Python 智能解析脚本
+          cat << 'EOF' > convert.py
+          import os, json, yaml, requests
+
+          def process_url(name, url):
+              print(f"Downloading {name}...")
+              try:
+                  resp = requests.get(url, timeout=15)
+                  resp.raise_for_status()
+                  content = resp.text
+              except Exception as e:
+                  print(f"Error downloading {name}: {e}")
+                  return
+                  
+              out_json_path = f"srs_output/{name}.json"
+              
+              # 1. 检测是否原生支持 Sing-box JSON
+              try:
+                  data = json.loads(content)
+                  if "rules" in data:
+                      print(f"-> [{name}] is valid Sing-box JSON.")
+                      with open(out_json_path, "w", encoding="utf-8") as f:
+                          json.dump(data, f, indent=2, ensure_ascii=False)
+                      return
+              except json.JSONDecodeError:
+                  pass
+                  
+              # 2. 按照 Mihomo(Clash) YAML 或纯文本解析
+              try:
+                  data = yaml.safe_load(content)
+                  if isinstance(data, dict) and "payload" in data:
+                      payload = data["payload"]
+                  else:
+                      payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
+              except yaml.YAMLError:
+                  payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
+
+              # 3. 映射规则字段
+              sb_rules = {}
+              mapping = {
+                  "DOMAIN-SUFFIX": "domain_suffix",
+                  "DOMAIN": "domain",
+                  "DOMAIN-KEYWORD": "domain_keyword",
+                  "DOMAIN-REGEX": "domain_regex",
+                  "IP-CIDR": "ip_cidr",
+                  "IP-CIDR6": "ip_cidr",
+                  "SRC-IP-CIDR": "source_ip_cidr",
+                  "PROCESS-NAME": "process_name",
+                  "DST-PORT": "port",
+                  "SRC-PORT": "source_port"
+              }
+
+              for line in payload:
+                  line = str(line).strip()
+                  if not line or line.startswith("#"): continue
+                  parts = [p.strip() for p in line.split(',', 1)]
+                  if len(parts) >= 2:
+                      r_type, r_val = parts[0].upper(), parts[1]
+                      # 剥离 Clash 特有的环境标签 (如 no-resolve) 确保 JSON 纯净
+                      r_val = r_val.split(',')[0].strip() 
+                      
+                      if r_type in mapping:
+                          key = mapping[r_type]
+                          sb_rules.setdefault(key, []).append(r_val)
+
+              if not sb_rules:
+                  print(f"-> [{name}] No valid rules extracted.")
+                  return
+
+              # 4. 构建标准 Sing-box rule-set 模板
+              final_json = {
+                  "version": 2,
+                  "rules": [sb_rules]
+              }
+              
+              with open(out_json_path, "w", encoding="utf-8") as f:
+                  json.dump(final_json, f, indent=2, ensure_ascii=False)
+              print(f"-> [{name}] Successfully converted to Sing-box JSON.")
+
+          if os.path.exists("subscriptions.txt"):
+              with open("subscriptions.txt", "r", encoding="utf-8") as f:
+                  for line in f:
+                      line = line.strip()
+                      if line and not line.startswith("#"):
+                          if "," in line:
+                              name, url = line.split(",", 1)
+                              process_url(name.strip(), url.strip())
+          EOF
+          
+          python convert.py
+
+      - name: Compile JSON to SRS
+        run: |
+          for file in srs_output/*.json; do
+            if [ -f "$file" ]; then
+              name=$(basename "$file" .json)
+              echo "Compiling $name.json to $name.srs"
+              sing-box rule-set compile "$file" -o "srs_output/${name}.srs"
+            fi
+          done
+
+      - name: Generate Release Tag
+        id: tag
+        run: echo "release_tag=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: "Auto Update ${{ steps.tag.outputs.release_tag }}"
+          files: |
+            srs_output/*.srs
+            srs_output/*.json
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
