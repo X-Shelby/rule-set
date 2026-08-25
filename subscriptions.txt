@@ -9,4 +9,4 @@ telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
 
 # 原生 Sing-box JSON 格式
 geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
-https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
+AWAvenue-Ads,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
