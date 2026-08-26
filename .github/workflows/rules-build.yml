@@ -1,11 +1,11 @@
-name: Fetch, Convert and Push SRS (Split Geo)
+name: Fetch, Convert and Push SRS (Smart Split & Dual Files)
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'subscriptions.txt'
+      - 'subscriptions*.txt'     # 只要是以 subscriptions 开头的 txt 变动都会触发
       - '.github/workflows/**'
   schedule:
     - cron: '0 2 * * *'
@@ -39,7 +39,6 @@ jobs:
 
       - name: Process URLs and Convert to JSON
         run: |
-          # 提前创建两个目标文件夹
           mkdir -p sing-box/geosite sing-box/geoip
           
           cat << 'EOF' > convert.py
@@ -48,7 +47,6 @@ jobs:
           DIR_SITE = "sing-box/geosite"
           DIR_IP = "sing-box/geoip"
 
-          # 定义哪些字段属于 Site (域名/进程)，哪些属于 IP (IP/端口)
           SITE_KEYS = {"domain_suffix", "domain", "domain_keyword", "domain_regex", "process_name"}
           IP_KEYS = {"ip_cidr", "source_ip_cidr", "port", "source_port"}
 
@@ -62,7 +60,7 @@ jobs:
                   print(f"Error downloading {name}: {e}")
                   return
                   
-              # 1. 检测是否是原生 Sing-box JSON，如果是，遍历并拆分规则
+              # 1. 尝试按原生 JSON 格式拆解
               try:
                   data = json.loads(content)
                   if "rules" in data:
@@ -77,16 +75,16 @@ jobs:
                       if site_rules_list:
                           with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
                               json.dump({"version": 2, "rules": site_rules_list}, f, indent=2, ensure_ascii=False)
-                          print(f"-> [{name}] (JSON) Saved to geosite.")
+                          print(f"-> [{name}] (JSON) Extracted Domains to geosite.")
                       if ip_rules_list:
                           with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
                               json.dump({"version": 2, "rules": ip_rules_list}, f, indent=2, ensure_ascii=False)
-                          print(f"-> [{name}] (JSON) Saved to geoip.")
+                          print(f"-> [{name}] (JSON) Extracted IPs to geoip.")
                       return
               except json.JSONDecodeError:
                   pass
                   
-              # 2. 按照 Mihomo(Clash) YAML 或纯文本 LIST 解析
+              # 2. 按 YAML 或纯文本 LIST 格式拆解
               try:
                   data = yaml.safe_load(content)
                   if isinstance(data, dict) and "payload" in data:
@@ -122,32 +120,36 @@ jobs:
                       
                       if r_type in mapping:
                           key = mapping[r_type]
-                          # 根据 Key 的归属，分配到不同的字典中
+                          # 智能归类：该去哪去哪，绝不丢弃
                           if key in SITE_KEYS:
                               site_rules.setdefault(key, []).append(r_val)
                           elif key in IP_KEYS:
                               ip_rules.setdefault(key, []).append(r_val)
 
-              # 3. 分别写入文件
+              # 3. 分别写入对应的文件夹
               if site_rules:
                   with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
                       json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
-                  print(f"-> [{name}] Saved to geosite.")
+                  print(f"-> [{name}] Domains saved to geosite.")
                   
               if ip_rules:
                   with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
                       json.dump({"version": 2, "rules": [ip_rules]}, f, indent=2, ensure_ascii=False)
-                  print(f"-> [{name}] Saved to geoip.")
+                  print(f"-> [{name}] IPs saved to geoip.")
 
               if not site_rules and not ip_rules:
                   print(f"-> [{name}] No valid rules extracted.")
 
-          if os.path.exists("subscriptions.txt"):
-              with open("subscriptions.txt", "r", encoding="utf-8") as f:
-                  for line in f:
-                      line = line.strip()
-                      if line and not line.startswith("#"):
-                          if "," in line:
+          # 自动读取当前目录下所有你能想到的 txt 配置文件
+          config_files = ["subscriptions_domain.txt", "subscriptions_ip.txt", "subscriptions.txt"]
+          
+          for cfg in config_files:
+              if os.path.exists(cfg):
+                  print(f"\n=== Processing {cfg} ===")
+                  with open(cfg, "r", encoding="utf-8") as f:
+                      for line in f:
+                          line = line.strip()
+                          if line and not line.startswith("#") and "," in line:
                               name, url = line.split(",", 1)
                               process_url(name.strip(), url.strip())
           EOF
@@ -156,7 +158,6 @@ jobs:
 
       - name: Compile JSON to SRS
         run: |
-          # 遍历两个目录，分别进行编译
           for DIR in "sing-box/geosite" "sing-box/geoip"; do
             if [ -d "$DIR" ]; then
               for file in "$DIR"/*.json; do
@@ -173,11 +174,10 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 同时将两个文件夹的改动加入 git
           git add sing-box/geosite/ sing-box/geoip/
           
           if git status --porcelain | grep -q "^[AMU]"; then
-            git commit -m "Auto-update rules (Split Geosite & Geoip) [skip ci]"
+            git commit -m "Auto-update & Smart Split rules [skip ci]"
             git push origin main
             echo "Changes pushed to repository successfully."
           else
