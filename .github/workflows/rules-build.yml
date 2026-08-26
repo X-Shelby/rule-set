@@ -1,4 +1,4 @@
-name: Fetch, Convert and Release SRS
+name: Fetch, Convert and Push SRS (Split Geo)
 
 on:
   push:
@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,10 +39,18 @@ jobs:
 
       - name: Process URLs and Convert to JSON
         run: |
-          mkdir -p srs_output
+          # 提前创建两个目标文件夹
+          mkdir -p sing-box/geosite sing-box/geoip
           
           cat << 'EOF' > convert.py
           import os, json, yaml, requests
+
+          DIR_SITE = "sing-box/geosite"
+          DIR_IP = "sing-box/geoip"
+
+          # 定义哪些字段属于 Site (域名/进程)，哪些属于 IP (IP/端口)
+          SITE_KEYS = {"domain_suffix", "domain", "domain_keyword", "domain_regex", "process_name"}
+          IP_KEYS = {"ip_cidr", "source_ip_cidr", "port", "source_port"}
 
           def process_url(name, url):
               print(f"Downloading {name}...")
@@ -54,17 +62,31 @@ jobs:
                   print(f"Error downloading {name}: {e}")
                   return
                   
-              out_json_path = f"srs_output/{name}.json"
-              
+              # 1. 检测是否是原生 Sing-box JSON，如果是，遍历并拆分规则
               try:
                   data = json.loads(content)
                   if "rules" in data:
-                      with open(out_json_path, "w", encoding="utf-8") as f:
-                          json.dump(data, f, indent=2, ensure_ascii=False)
+                      site_rules_list = []
+                      ip_rules_list = []
+                      for rule in data["rules"]:
+                          site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS}
+                          ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS}
+                          if site_dict: site_rules_list.append(site_dict)
+                          if ip_dict: ip_rules_list.append(ip_dict)
+                      
+                      if site_rules_list:
+                          with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                              json.dump({"version": 2, "rules": site_rules_list}, f, indent=2, ensure_ascii=False)
+                          print(f"-> [{name}] (JSON) Saved to geosite.")
+                      if ip_rules_list:
+                          with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
+                              json.dump({"version": 2, "rules": ip_rules_list}, f, indent=2, ensure_ascii=False)
+                          print(f"-> [{name}] (JSON) Saved to geoip.")
                       return
               except json.JSONDecodeError:
                   pass
                   
+              # 2. 按照 Mihomo(Clash) YAML 或纯文本 LIST 解析
               try:
                   data = yaml.safe_load(content)
                   if isinstance(data, dict) and "payload" in data:
@@ -74,19 +96,21 @@ jobs:
               except yaml.YAMLError:
                   payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
-              sb_rules = {}
               mapping = {
                   "DOMAIN-SUFFIX": "domain_suffix",
                   "DOMAIN": "domain",
                   "DOMAIN-KEYWORD": "domain_keyword",
                   "DOMAIN-REGEX": "domain_regex",
+                  "PROCESS-NAME": "process_name",
                   "IP-CIDR": "ip_cidr",
                   "IP-CIDR6": "ip_cidr",
                   "SRC-IP-CIDR": "source_ip_cidr",
-                  "PROCESS-NAME": "process_name",
                   "DST-PORT": "port",
                   "SRC-PORT": "source_port"
               }
+
+              site_rules = {}
+              ip_rules = {}
 
               for line in payload:
                   line = str(line).strip()
@@ -98,20 +122,25 @@ jobs:
                       
                       if r_type in mapping:
                           key = mapping[r_type]
-                          sb_rules.setdefault(key, []).append(r_val)
+                          # 根据 Key 的归属，分配到不同的字典中
+                          if key in SITE_KEYS:
+                              site_rules.setdefault(key, []).append(r_val)
+                          elif key in IP_KEYS:
+                              ip_rules.setdefault(key, []).append(r_val)
 
-              if not sb_rules:
+              # 3. 分别写入文件
+              if site_rules:
+                  with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                      json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
+                  print(f"-> [{name}] Saved to geosite.")
+                  
+              if ip_rules:
+                  with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
+                      json.dump({"version": 2, "rules": [ip_rules]}, f, indent=2, ensure_ascii=False)
+                  print(f"-> [{name}] Saved to geoip.")
+
+              if not site_rules and not ip_rules:
                   print(f"-> [{name}] No valid rules extracted.")
-                  return
-
-              final_json = {
-                  "version": 2,
-                  "rules": [sb_rules]
-              }
-              
-              with open(out_json_path, "w", encoding="utf-8") as f:
-                  json.dump(final_json, f, indent=2, ensure_ascii=False)
-              print(f"-> [{name}] Success.")
 
           if os.path.exists("subscriptions.txt"):
               with open("subscriptions.txt", "r", encoding="utf-8") as f:
@@ -127,36 +156,30 @@ jobs:
 
       - name: Compile JSON to SRS
         run: |
-          for file in srs_output/*.json; do
-            if [ -f "$file" ]; then
-              name=$(basename "$file" .json)
-              sing-box rule-set compile "$file" -o "srs_output/${name}.srs"
+          # 遍历两个目录，分别进行编译
+          for DIR in "sing-box/geosite" "sing-box/geoip"; do
+            if [ -d "$DIR" ]; then
+              for file in "$DIR"/*.json; do
+                if [ -f "$file" ]; then
+                  name=$(basename "$file" .json)
+                  sing-box rule-set compile "$file" -o "$DIR/${name}.srs"
+                fi
+              done
             fi
           done
 
-      # === 新增：清理旧的 latest 标签与 Release ===
-      - name: Remove Old Release and Tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit and Push Changes
         run: |
-          # 删除远端 Release 和 Tag (|| true 确保首次运行或找不到标签时不会导致报错中断)
-          gh release delete latest --cleanup-tag -y || true
-          git push origin :refs/tags/latest || true
-
-      - name: Get Current Time
-        run: echo "UPDATE_TIME=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
-
-      # === 修改：固定发版到 latest ===
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: "Latest Rules"
-          body: "自动更新时间: ${{ env.UPDATE_TIME }}"
-          files: |
-            srs_output/*.srs
-            srs_output/*.json
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 同时将两个文件夹的改动加入 git
+          git add sing-box/geosite/ sing-box/geoip/
+          
+          if git status --porcelain | grep -q "^[AMU]"; then
+            git commit -m "Auto-update rules (Split Geosite & Geoip) [skip ci]"
+            git push origin main
+            echo "Changes pushed to repository successfully."
+          else
+            echo "No changes detected, skipping commit."
+          fi
