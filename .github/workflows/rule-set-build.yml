@@ -1,11 +1,11 @@
-name: Fetch, Convert and Push SRS (Smart Split & Dual Files)
+name: Fetch, Convert and Push SRS (Smart Split & Strict Filter)
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'subscriptions*.txt'     # 只要是以 subscriptions 开头的 txt 变动都会触发
+      - 'subscriptions*.txt'
       - '.github/workflows/**'
   schedule:
     - cron: '0 2 * * *'
@@ -60,15 +60,16 @@ jobs:
                   print(f"Error downloading {name}: {e}")
                   return
                   
-              # 1. 尝试按原生 JSON 格式拆解
+              # 1. 按原生 JSON 格式拆解（增加严苛的空值校验）
               try:
                   data = json.loads(content)
                   if "rules" in data:
                       site_rules_list = []
                       ip_rules_list = []
                       for rule in data["rules"]:
-                          site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS}
-                          ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS}
+                          # 核心修复: `and v` 确保只有在列表非空 (不是 []) 的情况下，才保留该字段
+                          site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS and v}
+                          ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS and v}
                           if site_dict: site_rules_list.append(site_dict)
                           if ip_dict: ip_rules_list.append(ip_dict)
                       
@@ -118,15 +119,17 @@ jobs:
                       r_type, r_val = parts[0].upper(), parts[1]
                       r_val = r_val.split(',')[0].strip() 
                       
+                      # 二次防御：剔除可能存在的空行规则
+                      if not r_val: continue
+
                       if r_type in mapping:
                           key = mapping[r_type]
-                          # 智能归类：该去哪去哪，绝不丢弃
                           if key in SITE_KEYS:
                               site_rules.setdefault(key, []).append(r_val)
                           elif key in IP_KEYS:
                               ip_rules.setdefault(key, []).append(r_val)
 
-              # 3. 分别写入对应的文件夹
+              # 3. 只有里面确切有内容，才允许写入文件
               if site_rules:
                   with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
                       json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
@@ -138,9 +141,8 @@ jobs:
                   print(f"-> [{name}] IPs saved to geoip.")
 
               if not site_rules and not ip_rules:
-                  print(f"-> [{name}] No valid rules extracted.")
+                  print(f"-> [{name}] Skipped: No valid data found (Empty).")
 
-          # 自动读取当前目录下所有你能想到的 txt 配置文件
           config_files = ["subscriptions_domain.txt", "subscriptions_ip.txt", "subscriptions.txt"]
           
           for cfg in config_files:
@@ -177,7 +179,7 @@ jobs:
           git add sing-box/geosite/ sing-box/geoip/
           
           if git status --porcelain | grep -q "^[AMU]"; then
-            git commit -m "Auto-update & Smart Split rules [skip ci]"
+            git commit -m "Auto-update & Strictly filter empty rules [skip ci]"
             git push origin main
             echo "Changes pushed to repository successfully."
           else
