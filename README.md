@@ -1,1 +1,1 @@
-# sing-box-rules
+# sing-box-rule-set
