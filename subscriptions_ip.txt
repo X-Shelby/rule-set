@@ -1,1 +1,13 @@
+# 格式: 自定义文件名,订阅链接
+# 支持的格式: Clash YAML Provider / 纯文本列表 / Sing-box JSON
+
+# Mihomo/Clash 格式的 YAML
+ads,https://raw.githubusercontent.com/example/rule/main/ads.yaml
+
+# 纯文本 LIST 格式
+telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
+
+# 原生 Sing-box JSON 格式
+geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
+
 
