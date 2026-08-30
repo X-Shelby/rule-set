@@ -21,7 +21,7 @@ https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/facebo
 
 geoip-google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/google.json
 
-geoip-cn,https://github.com/X-Shelby/geoip/releases/download/latest/cnip_all.json
+geoip-cn,https://github.com/X-Shelby/geoip/releases/download/latest/cn.txt
 
 geoip-facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/facebook.json
 
