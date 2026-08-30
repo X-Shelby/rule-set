@@ -34,7 +34,6 @@ jobs:
       - name: Install Python Dependencies
         run: |
           pip install pyyaml requests
-
       - name: Install Latest sing-box
         run: |
           LATEST_URL=$(curl -sL \
@@ -45,9 +44,13 @@ jobs:
             | head -n 1)
 
           wget -qO sing-box.tar.gz "$LATEST_URL"
+
           tar -xzf sing-box.tar.gz
 
           sudo mv sing-box-*/sing-box /usr/local/bin/
+
+          # 清理临时文件
+          rm -rf sing-box.tar.gz sing-box-*/
 
           sing-box version
 
@@ -539,41 +542,19 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
+          # 只添加生成的规则文件
           git add sing-box/geosite/ sing-box/geoip/
 
+          # 没有规则变化则正常结束
           if git diff --cached --quiet; then
             echo "No changes detected, skipping commit."
             exit 0
           fi
 
+          # 提交
           git commit -m "Auto-update rule sets [skip ci]"
+
+          # 推送
           git push origin main
 
           echo "Changes pushed successfully."
-          git config --local \
-            user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git config --local \
-            user.name \
-            "github-actions[bot]"
-
-          git add \
-            sing-box/geosite/ \
-            sing-box/geoip/
-
-          if git status --porcelain | grep -q .
-          then
-
-            git commit \
-              -m "Auto-update rule sets [skip ci]"
-
-            git push origin main
-
-            echo "Changes pushed successfully."
-
-          else
-
-            echo "No changes detected."
-
-          fi
