@@ -13,8 +13,6 @@ geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 # 秋风广告规则完全拦截
 AWAvenue-Ads,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
 
-httpdns,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/httpdns.json
-
 anti-ad,https://raw.githubusercontent.com/privacy-protection-tools/anti-ad.github.io/master/docs/anti-ad-sing-box.json
 
 webrtc,https://github.com/xiao4350/sing-box/raw/refs/heads/main/webrtc.json
