@@ -518,58 +518,38 @@ jobs:
 
       - name: Compile JSON to SRS
         run: |
+          for DIR in "sing-box/geosite" "sing-box/geoip"; do
+            if [ -d "$DIR" ]; then
+              for file in "$DIR"/*.json; do
+                if [ -f "$file" ]; then
+                  name=$(basename "$file" .json)
 
-          echo "=== Compiling SRS ==="
+                  echo "Compiling: $file"
 
-          for DIR in \
-            "sing-box/geosite" \
-            "sing-box/geoip"
-          do
-
-            if [ ! -d "$DIR" ]; then
-              continue
+                  sing-box rule-set compile \
+                    "$file" \
+                    -o "$DIR/${name}.srs"
+                fi
+              done
             fi
-
-            find "$DIR" \
-              -type f \
-              -name "*.json" \
-              -print0 |
-            while IFS= read -r -d '' file
-            do
-
-              name=$(basename "$file" .json)
-
-              echo "Compiling: $file"
-
-              if sing-box rule-set compile \
-                "$file" \
-                -o "$DIR/${name}.srs"
-              then
-
-                echo "OK: $DIR/${name}.srs"
-
-              else
-
-                echo "FAILED: $file"
-                exit 1
-
-              fi
-
-            done
-
           done
-
-          echo
-          echo "=== Generated SRS ==="
-
-          find sing-box \
-            -type f \
-            -name "*.srs" \
-            -print
 
       - name: Commit and Push Changes
         run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
+          git add sing-box/geosite/ sing-box/geoip/
+
+          if git diff --cached --quiet; then
+            echo "No changes detected, skipping commit."
+            exit 0
+          fi
+
+          git commit -m "Auto-update rule sets [skip ci]"
+          git push origin main
+
+          echo "Changes pushed successfully."
           git config --local \
             user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
