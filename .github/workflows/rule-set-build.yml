@@ -1,4 +1,4 @@
-name: Fetch, Convert and Push SRS (Smart Split & Strict Filter)
+name: Fetch, Convert and Push SRS
 
 on:
   push:
@@ -6,9 +6,13 @@ on:
       - main
     paths:
       - 'subscriptions*.txt'
+      - 'subscriptions*.yaml'
+      - 'subscriptions*.yml'
       - '.github/workflows/**'
+
   schedule:
     - cron: '0 2 * * *'
+
   workflow_dispatch:
 
 permissions:
@@ -28,182 +32,568 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python Dependencies
-        run: pip install pyyaml requests
+        run: |
+          pip install pyyaml requests
 
       - name: Install Latest sing-box
         run: |
-          LATEST_URL=$(curl -sL https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep "browser_download_url" | grep "linux-amd64.tar.gz" | cut -d '"' -f 4)
-          wget -qO sing-box.tar.gz $LATEST_URL
+          LATEST_URL=$(curl -sL \
+            https://api.github.com/repos/SagerNet/sing-box/releases/latest \
+            | grep "browser_download_url" \
+            | grep "linux-amd64.tar.gz" \
+            | cut -d '"' -f 4 \
+            | head -n 1)
+
+          wget -qO sing-box.tar.gz "$LATEST_URL"
           tar -xzf sing-box.tar.gz
+
           sudo mv sing-box-*/sing-box /usr/local/bin/
 
-      - name: Process URLs and Convert to JSON
+          sing-box version
+
+      - name: Process Subscriptions
         run: |
-          mkdir -p sing-box/geosite sing-box/geoip
-          
-          cat << 'EOF' > convert.py
-          import os, json, yaml, requests
 
-          DIR_SITE = "sing-box/geosite"
-          DIR_IP = "sing-box/geoip"
+          mkdir -p sing-box/geosite
+          mkdir -p sing-box/geoip
 
-          SITE_KEYS = {"domain_suffix", "domain", "domain_keyword", "domain_regex", "process_name"}
-          IP_KEYS = {"ip_cidr", "source_ip_cidr", "port", "source_port"}
-          ALL_KEYS = SITE_KEYS | IP_KEYS
+          cat > convert.py <<'PY'
+          import os
+          import json
+          import yaml
+          import requests
 
-          def process_url(name, url, mode="split"):
-              print(f"Downloading {name} (Mode: {mode})...")
-              try:
-                  resp = requests.get(url, timeout=15)
-                  resp.raise_for_status()
-                  content = resp.text
-              except Exception as e:
-                  print(f"Error downloading {name}: {e}")
-                  return
-                  
-              # 1. 按原生 JSON 格式拆解
+
+          SITE_DIR = "sing-box/geosite"
+          IP_DIR = "sing-box/geoip"
+
+
+          SITE_KEYS = {
+              "domain",
+              "domain_suffix",
+              "domain_keyword",
+              "domain_regex",
+              "process_name"
+          }
+
+          IP_KEYS = {
+              "ip_cidr",
+              "source_ip_cidr",
+              "port",
+              "source_port"
+          }
+
+
+          MAPPING = {
+              "DOMAIN": "domain",
+              "DOMAIN-SUFFIX": "domain_suffix",
+              "DOMAIN-KEYWORD": "domain_keyword",
+              "DOMAIN-REGEX": "domain_regex",
+
+              "PROCESS-NAME": "process_name",
+
+              "IP-CIDR": "ip_cidr",
+              "IP-CIDR6": "ip_cidr",
+
+              "SRC-IP-CIDR": "source_ip_cidr",
+
+              "DST-PORT": "port",
+              "SRC-PORT": "source_port"
+          }
+
+
+          def download(url):
+              print(f"Downloading: {url}")
+
+              r = requests.get(
+                  url,
+                  timeout=30,
+                  headers={
+                      "User-Agent": "Mozilla/5.0"
+                  }
+              )
+
+              r.raise_for_status()
+
+              return r.text
+
+
+          def parse_json(content):
               try:
                   data = json.loads(content)
-                  if "rules" in data:
-                      if mode == "mixed":
-                          mixed_rules_list = []
-                          for rule in data["rules"]:
-                              mixed_dict = {k: v for k, v in rule.items() if k in ALL_KEYS and v}
-                              if mixed_dict: mixed_rules_list.append(mixed_dict)
-                          
-                          if mixed_rules_list:
-                              with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                                  json.dump({"version": 2, "rules": mixed_rules_list}, f, indent=2, ensure_ascii=False)
-                              print(f"-> [{name}] (JSON) Mixed rules saved to geosite.")
-                          return
-                      else:
-                          site_rules_list = []
-                          ip_rules_list = []
-                          for rule in data["rules"]:
-                              site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS and v}
-                              ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS and v}
-                              if site_dict: site_rules_list.append(site_dict)
-                              if ip_dict: ip_rules_list.append(ip_dict)
-                          
-                          if site_rules_list:
-                              with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                                  json.dump({"version": 2, "rules": site_rules_list}, f, indent=2, ensure_ascii=False)
-                          if ip_rules_list:
-                              with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
-                                  json.dump({"version": 2, "rules": ip_rules_list}, f, indent=2, ensure_ascii=False)
-                          return
-              except json.JSONDecodeError:
+
+                  if isinstance(data, dict):
+                      if "rules" in data:
+                          return data["rules"]
+
+                      if "payload" in data:
+                          return data["payload"]
+
+                  if isinstance(data, list):
+                      return data
+
+              except Exception:
                   pass
-                  
-              # 2. 按 YAML 或纯文本 LIST 格式拆解
+
+              return None
+
+
+          def parse_yaml(content):
               try:
                   data = yaml.safe_load(content)
-                  if isinstance(data, dict) and "payload" in data:
-                      payload = data["payload"]
-                  else:
-                      payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
-              except yaml.YAMLError:
-                  payload = [line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")]
 
-              mapping = {
-                  "DOMAIN-SUFFIX": "domain_suffix",
-                  "DOMAIN": "domain",
-                  "DOMAIN-KEYWORD": "domain_keyword",
-                  "DOMAIN-REGEX": "domain_regex",
-                  "PROCESS-NAME": "process_name",
-                  "IP-CIDR": "ip_cidr",
-                  "IP-CIDR6": "ip_cidr",
-                  "SRC-IP-CIDR": "source_ip_cidr",
-                  "DST-PORT": "port",
-                  "SRC-PORT": "source_port"
+                  if isinstance(data, dict):
+
+                      # Clash Rule Provider
+                      if "payload" in data:
+                          return data["payload"]
+
+                      # 某些规则集使用 rules
+                      if "rules" in data:
+                          return data["rules"]
+
+                  if isinstance(data, list):
+                      return data
+
+              except Exception:
+                  pass
+
+              return None
+
+
+          def parse_text(content):
+              return [
+                  line.strip()
+                  for line in content.splitlines()
+                  if line.strip()
+                  and not line.strip().startswith("#")
+              ]
+
+
+          def parse_content(content):
+              # JSON
+              rules = parse_json(content)
+
+              if rules is not None:
+                  print("Detected: JSON")
+                  return rules
+
+              # YAML
+              rules = parse_yaml(content)
+
+              if rules is not None:
+                  print("Detected: YAML")
+                  return rules
+
+              # TXT
+              print("Detected: TXT")
+
+              return parse_text(content)
+
+
+          def add_rule(rule_dict, rule_type, value):
+
+              if not value:
+                  return
+
+              key = MAPPING.get(rule_type.upper())
+
+              if not key:
+                  return
+
+              rule_dict.setdefault(key, []).append(value)
+
+
+          def convert_rules(rules):
+
+              site_rules = {}
+              ip_rules = {}
+
+              for item in rules:
+
+                  if isinstance(item, dict):
+
+                      # sing-box 原生规则
+                      for key, value in item.items():
+
+                          if key in SITE_KEYS:
+                              if isinstance(value, list):
+                                  site_rules.setdefault(key, []).extend(value)
+                              else:
+                                  site_rules.setdefault(key, []).append(value)
+
+                          elif key in IP_KEYS:
+                              if isinstance(value, list):
+                                  ip_rules.setdefault(key, []).extend(value)
+                              else:
+                                  ip_rules.setdefault(key, []).append(value)
+
+                      continue
+
+
+                  if not isinstance(item, str):
+                      continue
+
+                  line = item.strip()
+
+                  if not line or line.startswith("#"):
+                      continue
+
+                  # Clash 格式
+                  parts = [x.strip() for x in line.split(",")]
+
+                  rule_type = parts[0].upper()
+
+                  if rule_type in MAPPING:
+
+                      if len(parts) < 2:
+                          continue
+
+                      value = parts[1].strip()
+
+                      if not value:
+                          continue
+
+                      if rule_type in {
+                          "IP-CIDR",
+                          "IP-CIDR6",
+                          "SRC-IP-CIDR"
+                      }:
+
+                          add_rule(
+                              ip_rules,
+                              rule_type,
+                              value
+                          )
+
+                      else:
+
+                          add_rule(
+                              site_rules,
+                              rule_type,
+                              value
+                          )
+
+                      continue
+
+                  # 纯域名格式
+                  if (
+                      "." in line
+                      and "," not in line
+                      and "/" not in line
+                  ):
+
+                      site_rules.setdefault(
+                          "domain_suffix",
+                          []
+                      ).append(line)
+
+              return site_rules, ip_rules
+
+
+          def save_json(path, rules):
+
+              if not rules:
+                  return False
+
+              # 去重
+              for key in rules:
+                  rules[key] = list(
+                      dict.fromkeys(rules[key])
+                  )
+
+              data = {
+                  "version": 2,
+                  "rules": [rules]
               }
 
-              if mode == "mixed":
-                  mixed_rules = {}
-                  for line in payload:
-                      line = str(line).strip()
-                      if not line or line.startswith("#"): continue
-                      parts = [p.strip() for p in line.split(',', 1)]
-                      if len(parts) >= 2:
-                          r_type, r_val = parts[0].upper(), parts[1]
-                          r_val = r_val.split(',')[0].strip() 
-                          if not r_val: continue
-                          if r_type in mapping:
-                              mixed_rules.setdefault(mapping[r_type], []).append(r_val)
+              with open(
+                  path,
+                  "w",
+                  encoding="utf-8"
+              ) as f:
 
-                  if mixed_rules:
-                      with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                          json.dump({"version": 2, "rules": [mixed_rules]}, f, indent=2, ensure_ascii=False)
-                      print(f"-> [{name}] Mixed rules saved to geosite.")
-              else:
-                  site_rules = {}
-                  ip_rules = {}
-                  for line in payload:
-                      line = str(line).strip()
-                      if not line or line.startswith("#"): continue
-                      parts = [p.strip() for p in line.split(',', 1)]
-                      if len(parts) >= 2:
-                          r_type, r_val = parts[0].upper(), parts[1]
-                          r_val = r_val.split(',')[0].strip() 
-                          if not r_val: continue
-                          if r_type in mapping:
-                              key = mapping[r_type]
-                              if key in SITE_KEYS:
-                                  site_rules.setdefault(key, []).append(r_val)
-                              elif key in IP_KEYS:
-                                  ip_rules.setdefault(key, []).append(r_val)
+                  json.dump(
+                      data,
+                      f,
+                      indent=2,
+                      ensure_ascii=False
+                  )
 
-                  if site_rules:
-                      with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                          json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
-                  if ip_rules:
-                      with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
-                          json.dump({"version": 2, "rules": [ip_rules]}, f, indent=2, ensure_ascii=False)
+              return True
 
-          # 定义不同配置文件的处理模式
-          configs = {
-              "subscriptions_domain.txt": "split",
-              "subscriptions_ip.txt": "split",
-              "subscriptions.txt": "mixed" # 指向混合模式，存入 geosite
-          }
-          
-          for cfg, mode in configs.items():
-              if os.path.exists(cfg):
-                  print(f"\n=== Processing {cfg} [{mode} mode] ===")
-                  with open(cfg, "r", encoding="utf-8") as f:
-                      for line in f:
-                          line = line.strip()
-                          if line and not line.startswith("#") and "," in line:
-                              name, url = line.split(",", 1)
-                              process_url(name.strip(), url.strip(), mode=mode)
-          EOF
-          
+
+          def process(name, url, mode="split"):
+
+              print()
+              print("=" * 60)
+              print(f"Processing: {name}")
+              print(f"Mode: {mode}")
+              print("=" * 60)
+
+              try:
+                  content = download(url)
+
+              except Exception as e:
+
+                  print(
+                      f"Download failed: {e}"
+                  )
+
+                  return
+
+
+              try:
+                  rules = parse_content(content)
+
+                  if not rules:
+
+                      print(
+                          f"[{name}] No rules found"
+                      )
+
+                      return
+
+                  print(
+                      f"[{name}] Raw rules: {len(rules)}"
+                  )
+
+                  site_rules, ip_rules = convert_rules(
+                      rules
+                  )
+
+                  if mode == "mixed":
+
+                      mixed = {}
+
+                      mixed.update(site_rules)
+                      mixed.update(ip_rules)
+
+                      if save_json(
+                          f"{SITE_DIR}/{name}.json",
+                          mixed
+                      ):
+
+                          print(
+                              f"[{name}] "
+                              f"Mixed JSON generated"
+                          )
+
+                  else:
+
+                      if save_json(
+                          f"{SITE_DIR}/{name}.json",
+                          site_rules
+                      ):
+
+                          print(
+                              f"[{name}] "
+                              f"Geosite JSON generated"
+                          )
+
+                      if save_json(
+                          f"{IP_DIR}/{name}.json",
+                          ip_rules
+                      ):
+
+                          print(
+                              f"[{name}] "
+                              f"GeoIP JSON generated"
+                          )
+
+              except Exception as e:
+
+                  print(
+                      f"[{name}] "
+                      f"Processing error: {e}"
+                  )
+
+
+          def process_config_file(path):
+
+              print()
+              print(
+                  f"### Config: {path}"
+              )
+
+              ext = os.path.splitext(path)[1].lower()
+
+              # 默认 split
+              mode = "split"
+
+              # subscriptions.txt 保持混合模式
+              if os.path.basename(path) == "subscriptions.txt":
+                  mode = "mixed"
+
+              try:
+
+                  with open(
+                      path,
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+
+                      lines = f.readlines()
+
+              except Exception as e:
+
+                  print(
+                      f"Cannot read {path}: {e}"
+                  )
+
+                  return
+
+
+              for line in lines:
+
+                  line = line.strip()
+
+                  if (
+                      not line
+                      or line.startswith("#")
+                  ):
+                      continue
+
+                  # 支持：
+                  #
+                  # name,url
+                  #
+                  # name = url
+
+                  if "," in line:
+
+                      name, url = line.split(
+                          ",",
+                          1
+                      )
+
+                  elif "=" in line:
+
+                      name, url = line.split(
+                          "=",
+                          1
+                      )
+
+                  else:
+
+                      continue
+
+                  name = name.strip()
+                  url = url.strip()
+
+                  if not name or not url:
+                      continue
+
+                  process(
+                      name,
+                      url,
+                      mode
+                  )
+
+
+          # 自动扫描 subscriptions*.txt/yaml/yml
+          files = sorted(
+              f for f in os.listdir(".")
+              if (
+                  f.startswith("subscriptions")
+                  and f.endswith(
+                      (".txt", ".yaml", ".yml")
+                  )
+              )
+          )
+
+
+          print(
+              f"Found config files: {files}"
+          )
+
+
+          for file in files:
+
+              process_config_file(file)
+
+          PY
+
           python convert.py
 
       - name: Compile JSON to SRS
         run: |
-          for DIR in "sing-box/geosite" "sing-box/geoip"; do
-            if [ -d "$DIR" ]; then
-              for file in "$DIR"/*.json; do
-                if [ -f "$file" ]; then
-                  name=$(basename "$file" .json)
-                  sing-box rule-set compile "$file" -o "$DIR/${name}.srs"
-                fi
-              done
+
+          echo "=== Compiling SRS ==="
+
+          for DIR in \
+            "sing-box/geosite" \
+            "sing-box/geoip"
+          do
+
+            if [ ! -d "$DIR" ]; then
+              continue
             fi
+
+            find "$DIR" \
+              -type f \
+              -name "*.json" \
+              -print0 |
+            while IFS= read -r -d '' file
+            do
+
+              name=$(basename "$file" .json)
+
+              echo "Compiling: $file"
+
+              if sing-box rule-set compile \
+                "$file" \
+                -o "$DIR/${name}.srs"
+              then
+
+                echo "OK: $DIR/${name}.srs"
+
+              else
+
+                echo "FAILED: $file"
+                exit 1
+
+              fi
+
+            done
+
           done
+
+          echo
+          echo "=== Generated SRS ==="
+
+          find sing-box \
+            -type f \
+            -name "*.srs" \
+            -print
 
       - name: Commit and Push Changes
         run: |
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          git add sing-box/geosite/ sing-box/geoip/
-          
-          if git status --porcelain | grep -q "^[AMU]"; then
-            git commit -m "Auto-update: Process subscriptions.txt as mixed rules [skip ci]"
+
+          git config --local \
+            user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git config --local \
+            user.name \
+            "github-actions[bot]"
+
+          git add \
+            sing-box/geosite/ \
+            sing-box/geoip/
+
+          if git status --porcelain | grep -q .
+          then
+
+            git commit \
+              -m "Auto-update rule sets [skip ci]"
+
             git push origin main
-            echo "Changes pushed to repository successfully."
+
+            echo "Changes pushed successfully."
+
           else
-            echo "No changes detected, skipping commit."
+
+            echo "No changes detected."
+
           fi
