@@ -2,7 +2,9 @@
   "version": 2,
   "rules": [
     {
-      "domain": "fbcdn-a.akamaihd.net",
+      "domain": [
+        "fbcdn-a.akamaihd.net"
+      ],
       "domain_suffix": [
         "aboutfacebook.com",
         "accessfacebookfromschool.com",

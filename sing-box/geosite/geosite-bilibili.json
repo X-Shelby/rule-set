@@ -2,7 +2,9 @@
   "version": 2,
   "rules": [
     {
-      "domain": "upos-hz-mirrorakam.akamaized.net",
+      "domain": [
+        "upos-hz-mirrorakam.akamaized.net"
+      ],
       "domain_suffix": [
         "bilicomic.com",
         "bilicomics.com",
