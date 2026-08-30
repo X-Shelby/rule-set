@@ -11,3 +11,5 @@ telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
 geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 
 httpdns,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/httpdns.json
+
+anti-ad,https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-clash.yaml
