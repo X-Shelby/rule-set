@@ -1,4 +1,3 @@
-
 # 格式: 自定义文件名,订阅链接
 # 支持的格式: Clash YAML Provider / 纯文本列表 / Sing-box JSON
 
@@ -11,4 +10,18 @@ telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
 # 原生 Sing-box JSON 格式
 geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 
+# 秋风广告规则完全拦截
 AWAvenue-Ads,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
+
+httpdns,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/httpdns.json
+
+anti-ad,https://raw.githubusercontent.com/privacy-protection-tools/anti-ad.github.io/master/docs/anti-ad-sing-box.json
+
+webrtc,https://github.com/xiao4350/sing-box/raw/refs/heads/main/webrtc.json
+
+geosite--!cn,https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/proxy.json
+
+fakeip-filter,https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/fakeip-filter.json
+
+captcha,https://github.com/yzxiu/singbox_ruleset/raw/refs/heads/main/sing-geosite/hcaptcha/hcaptcha.json
+
