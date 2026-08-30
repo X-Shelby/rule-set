@@ -49,9 +49,10 @@ jobs:
 
           SITE_KEYS = {"domain_suffix", "domain", "domain_keyword", "domain_regex", "process_name"}
           IP_KEYS = {"ip_cidr", "source_ip_cidr", "port", "source_port"}
+          ALL_KEYS = SITE_KEYS | IP_KEYS
 
-          def process_url(name, url):
-              print(f"Downloading {name}...")
+          def process_url(name, url, mode="split"):
+              print(f"Downloading {name} (Mode: {mode})...")
               try:
                   resp = requests.get(url, timeout=15)
                   resp.raise_for_status()
@@ -60,28 +61,37 @@ jobs:
                   print(f"Error downloading {name}: {e}")
                   return
                   
-              # 1. 按原生 JSON 格式拆解（增加严苛的空值校验）
+              # 1. 按原生 JSON 格式拆解
               try:
                   data = json.loads(content)
                   if "rules" in data:
-                      site_rules_list = []
-                      ip_rules_list = []
-                      for rule in data["rules"]:
-                          # 核心修复: `and v` 确保只有在列表非空 (不是 []) 的情况下，才保留该字段
-                          site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS and v}
-                          ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS and v}
-                          if site_dict: site_rules_list.append(site_dict)
-                          if ip_dict: ip_rules_list.append(ip_dict)
-                      
-                      if site_rules_list:
-                          with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                              json.dump({"version": 2, "rules": site_rules_list}, f, indent=2, ensure_ascii=False)
-                          print(f"-> [{name}] (JSON) Extracted Domains to geosite.")
-                      if ip_rules_list:
-                          with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
-                              json.dump({"version": 2, "rules": ip_rules_list}, f, indent=2, ensure_ascii=False)
-                          print(f"-> [{name}] (JSON) Extracted IPs to geoip.")
-                      return
+                      if mode == "mixed":
+                          mixed_rules_list = []
+                          for rule in data["rules"]:
+                              mixed_dict = {k: v for k, v in rule.items() if k in ALL_KEYS and v}
+                              if mixed_dict: mixed_rules_list.append(mixed_dict)
+                          
+                          if mixed_rules_list:
+                              with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                                  json.dump({"version": 2, "rules": mixed_rules_list}, f, indent=2, ensure_ascii=False)
+                              print(f"-> [{name}] (JSON) Mixed rules saved to geosite.")
+                          return
+                      else:
+                          site_rules_list = []
+                          ip_rules_list = []
+                          for rule in data["rules"]:
+                              site_dict = {k: v for k, v in rule.items() if k in SITE_KEYS and v}
+                              ip_dict = {k: v for k, v in rule.items() if k in IP_KEYS and v}
+                              if site_dict: site_rules_list.append(site_dict)
+                              if ip_dict: ip_rules_list.append(ip_dict)
+                          
+                          if site_rules_list:
+                              with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                                  json.dump({"version": 2, "rules": site_rules_list}, f, indent=2, ensure_ascii=False)
+                          if ip_rules_list:
+                              with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
+                                  json.dump({"version": 2, "rules": ip_rules_list}, f, indent=2, ensure_ascii=False)
+                          return
               except json.JSONDecodeError:
                   pass
                   
@@ -108,52 +118,64 @@ jobs:
                   "SRC-PORT": "source_port"
               }
 
-              site_rules = {}
-              ip_rules = {}
+              if mode == "mixed":
+                  mixed_rules = {}
+                  for line in payload:
+                      line = str(line).strip()
+                      if not line or line.startswith("#"): continue
+                      parts = [p.strip() for p in line.split(',', 1)]
+                      if len(parts) >= 2:
+                          r_type, r_val = parts[0].upper(), parts[1]
+                          r_val = r_val.split(',')[0].strip() 
+                          if not r_val: continue
+                          if r_type in mapping:
+                              mixed_rules.setdefault(mapping[r_type], []).append(r_val)
 
-              for line in payload:
-                  line = str(line).strip()
-                  if not line or line.startswith("#"): continue
-                  parts = [p.strip() for p in line.split(',', 1)]
-                  if len(parts) >= 2:
-                      r_type, r_val = parts[0].upper(), parts[1]
-                      r_val = r_val.split(',')[0].strip() 
-                      
-                      # 二次防御：剔除可能存在的空行规则
-                      if not r_val: continue
+                  if mixed_rules:
+                      with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                          json.dump({"version": 2, "rules": [mixed_rules]}, f, indent=2, ensure_ascii=False)
+                      print(f"-> [{name}] Mixed rules saved to geosite.")
+              else:
+                  site_rules = {}
+                  ip_rules = {}
+                  for line in payload:
+                      line = str(line).strip()
+                      if not line or line.startswith("#"): continue
+                      parts = [p.strip() for p in line.split(',', 1)]
+                      if len(parts) >= 2:
+                          r_type, r_val = parts[0].upper(), parts[1]
+                          r_val = r_val.split(',')[0].strip() 
+                          if not r_val: continue
+                          if r_type in mapping:
+                              key = mapping[r_type]
+                              if key in SITE_KEYS:
+                                  site_rules.setdefault(key, []).append(r_val)
+                              elif key in IP_KEYS:
+                                  ip_rules.setdefault(key, []).append(r_val)
 
-                      if r_type in mapping:
-                          key = mapping[r_type]
-                          if key in SITE_KEYS:
-                              site_rules.setdefault(key, []).append(r_val)
-                          elif key in IP_KEYS:
-                              ip_rules.setdefault(key, []).append(r_val)
+                  if site_rules:
+                      with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
+                          json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
+                  if ip_rules:
+                      with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
+                          json.dump({"version": 2, "rules": [ip_rules]}, f, indent=2, ensure_ascii=False)
 
-              # 3. 只有里面确切有内容，才允许写入文件
-              if site_rules:
-                  with open(f"{DIR_SITE}/{name}.json", "w", encoding="utf-8") as f:
-                      json.dump({"version": 2, "rules": [site_rules]}, f, indent=2, ensure_ascii=False)
-                  print(f"-> [{name}] Domains saved to geosite.")
-                  
-              if ip_rules:
-                  with open(f"{DIR_IP}/{name}.json", "w", encoding="utf-8") as f:
-                      json.dump({"version": 2, "rules": [ip_rules]}, f, indent=2, ensure_ascii=False)
-                  print(f"-> [{name}] IPs saved to geoip.")
-
-              if not site_rules and not ip_rules:
-                  print(f"-> [{name}] Skipped: No valid data found (Empty).")
-
-          config_files = ["subscriptions_domain.txt", "subscriptions_ip.txt", "subscriptions.txt"]
+          # 定义不同配置文件的处理模式
+          configs = {
+              "subscriptions_domain.txt": "split",
+              "subscriptions_ip.txt": "split",
+              "subscriptions.txt": "mixed" # 指向混合模式，存入 geosite
+          }
           
-          for cfg in config_files:
+          for cfg, mode in configs.items():
               if os.path.exists(cfg):
-                  print(f"\n=== Processing {cfg} ===")
+                  print(f"\n=== Processing {cfg} [{mode} mode] ===")
                   with open(cfg, "r", encoding="utf-8") as f:
                       for line in f:
                           line = line.strip()
                           if line and not line.startswith("#") and "," in line:
                               name, url = line.split(",", 1)
-                              process_url(name.strip(), url.strip())
+                              process_url(name.strip(), url.strip(), mode=mode)
           EOF
           
           python convert.py
@@ -179,7 +201,7 @@ jobs:
           git add sing-box/geosite/ sing-box/geoip/
           
           if git status --porcelain | grep -q "^[AMU]"; then
-            git commit -m "Auto-update & Strictly filter empty rules [skip ci]"
+            git commit -m "Auto-update: Process subscriptions.txt as mixed rules [skip ci]"
             git push origin main
             echo "Changes pushed to repository successfully."
           else
