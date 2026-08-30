@@ -13,7 +13,7 @@ geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 # 秋风广告规则完全拦截
 AWAvenue-Ads,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
 
-anti-ad,https://anti-ad.net/clash.yaml
+anti-ad,https://github.com/privacy-protection-tools/anti-AD/raw/refs/heads/master/anti-ad-clash.yaml
 
 webrtc,https://github.com/xiao4350/sing-box/raw/refs/heads/main/webrtc.json
 
