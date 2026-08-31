@@ -25,4 +25,5 @@ geoip-google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo
 
 geoip-facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/facebook.json
 
+geoip-googlefcm,https://raw.githubusercontent.com/QuixoticHeart/rule-set/refs/heads/ruleset/singbox/version5/googlefcm.json
 
