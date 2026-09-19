@@ -20,8 +20,7 @@ telegram_ip,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/
 
 twitter_ip,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/twitter.json
 
-facebook_ip,
-https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/facebook.json
+facebook_ip,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/facebook.json
 
 google_ip,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/google.json
 
