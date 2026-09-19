@@ -23,7 +23,7 @@ fakeip-filter,https://github.com/DustinWin/ruleset_geodata/releases/download/sin
 
 hcaptcha,https://github.com/yzxiu/singbox_ruleset/raw/refs/heads/main/sing-geosite/hcaptcha/hcaptcha.json
 
-geosite-cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.json
+cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.json
 
 private,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/private.json
 
