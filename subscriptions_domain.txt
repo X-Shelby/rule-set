@@ -8,49 +8,49 @@ ads,https://raw.githubusercontent.com/example/rule/main/ads.yaml
 telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
 
 # 原生 Sing-box JSON 格式
-geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
+cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 
 # 秋风广告规则完全拦截
-AWAvenue-Ads,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
+AWAvenue,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
 
 anti-ad,https://anti-ad.net/clash.yaml
 
 webrtc,https://github.com/xiao4350/sing-box/raw/refs/heads/main/webrtc.json
 
-geosite-!cn,https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/proxy.json
+gfw,https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/proxy.json
 
 fakeip-filter,https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/fakeip-filter.json
 
-captcha,https://github.com/yzxiu/singbox_ruleset/raw/refs/heads/main/sing-geosite/hcaptcha/hcaptcha.json
+hcaptcha,https://github.com/yzxiu/singbox_ruleset/raw/refs/heads/main/sing-geosite/hcaptcha/hcaptcha.json
 
 geosite-cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.json
 
-geosite-private,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/private.json
+private,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/private.json
 
-geosite-douyin,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/douyin.json
+douyin,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/douyin.json
 
-geosite-bilibili,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/bilibili.json
+bilibili,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/bilibili.json
 
-geosite-googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
+googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
 
-geosite-apple,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/apple.json
+apple,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/apple.json
 
-geosite-onedrive,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/onedrive.json
+onedrive,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/onedrive.json
 
-geosite-microsoft,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/microsoft.json
+microsoft,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/microsoft.json
 
-geosite-github,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/github.json
+github,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/github.json
 
-geosite-google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google.json
+google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google.json
 
-geosite-tiktok,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/tiktok.json
+tiktok,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/tiktok.json
 
-geosite-youtube,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
+youtube,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
 
-geosite-telegram,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/telegram.json
+telegram,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/telegram.json
 
-geosite-twitter,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/twitter.json
+twitter,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/twitter.json
 
-geosite-facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/facebook.json
+facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/facebook.json
 
-geosite-ai-!cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json
+ai-!cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json
