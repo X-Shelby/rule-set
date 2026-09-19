@@ -10,7 +10,9 @@ telegram,https://raw.githubusercontent.com/example/rule/main/telegram.list
 # 原生 Sing-box JSON 格式
 geosite_cn,https://raw.githubusercontent.com/example/rule/main/geosite-cn.json
 
-cn_ip,https://github.com/X-Shelby/geoip/releases/download/latest/cnip_all.json
+cn_ip46,https://github.com/X-Shelby/geoip/releases/download/latest/cnip_all.json
+
+cn_ip,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.json
 
 youtube_ip,https://github.com/usernamelessss/singbox_ruleset_use/raw/refs/heads/main/rule/YouTube/YouTube_IP.json
 
