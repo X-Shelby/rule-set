@@ -31,7 +31,7 @@ douyin,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosi
 
 bilibili,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/bilibili.json
 
-googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
+googlefcm,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/googlefcm.json
 
 apple,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/apple.json
 
