@@ -31,8 +31,6 @@ douyin,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosi
 
 bilibili,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/bilibili.json
 
-googlefcm,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/googlefcm.json
-
 apple,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/apple.json
 
 onedrive,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/onedrive.json
@@ -45,7 +43,7 @@ google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosi
 
 tiktok,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/tiktok.json
 
-youtube,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
+youtub,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
 
 telegram,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/telegram.json
 
