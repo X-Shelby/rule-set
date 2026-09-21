@@ -4,3 +4,8 @@
 httpdns,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/httpdns.json
 
 googlefcm,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/googlefcm.json
+
+# 秋风广告规则完全拦截
+AWAvenue,https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json
+
+anti-ad,https://anti-ad.net/clash.yaml
