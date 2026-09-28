@@ -29,7 +29,7 @@ google,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosi
 
 tiktok,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/tiktok.json
 
-youtub,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
+youtube,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.json
 
 telegram,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/telegram.json
 
