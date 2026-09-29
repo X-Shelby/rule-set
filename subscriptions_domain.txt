@@ -38,3 +38,5 @@ twitter,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geos
 facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/facebook.json
 
 category-ai-!cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json
+
+googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
