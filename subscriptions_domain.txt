@@ -39,4 +39,4 @@ facebook,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geo
 
 category-ai-!cn,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json
 
-googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
+#googlefcm,https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/googlefcm.json
