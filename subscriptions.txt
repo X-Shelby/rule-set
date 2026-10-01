@@ -1,6 +1,8 @@
 # 格式: 自定义文件名,订阅链接
 # 支持的格式: Clash YAML Provider / 纯文本列表 / Sing-box JSON
 
+googlefcm,https://raw.githubusercontent.com/X-Shelby/rule-set/refs/heads/main/googlefcm.json
+
 httpdns,https://github.com/QuixoticHeart/rule-set/raw/refs/heads/ruleset/singbox/version5/httpdns.json
 
 # 秋风广告规则完全拦截
